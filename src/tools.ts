@@ -65,7 +65,12 @@ export class LiveOpsToolExecutor {
   constructor(
     private readonly store: LiveOpsStore,
     private readonly trace: TraceRecorder,
+    private readonly ticketPlayerId: string,
   ) {}
+
+  private isTicketPlayer(playerId: string): boolean {
+    return playerId.trim().toUpperCase() === this.ticketPlayerId.trim().toUpperCase();
+  }
 
   get committedAction(): CommittedAction | null {
     return this.committed;
@@ -109,6 +114,9 @@ export class LiveOpsToolExecutor {
   }
 
   private lookupPlayer({ playerId, platform }: GetPlayerTelemetryParams): TelemetryLookupResult {
+    if (!this.isTicketPlayer(playerId)) {
+      return { found: false, verified: false, error: `Access denied: only the ticket's player (${this.ticketPlayerId || 'none'}) can be looked up.` };
+    }
     if (!isValidPlayerId(playerId)) {
       return { found: false, verified: false, error: `Invalid or missing playerId "${playerId}". Expected format USR-XXXX (KB-105).` };
     }
@@ -131,6 +139,12 @@ export class LiveOpsToolExecutor {
   }
 
   private runAction(args: ExecuteLiveOpsActionParams): LiveOpsActionResult {
+    if (!this.isTicketPlayer(args.playerId)) {
+      return {
+        status: 'ACTION_BLOCKED_BY_GUARDRAIL',
+        error: `GUARDRAIL_BLOCKED: actions are limited to the ticket's player (${this.ticketPlayerId || 'none'}), not ${args.playerId}.`,
+      };
+    }
     if (args.actionType === 'CREATE_P1_ESCALATION') {
       const escalationTicket = this.store.createEscalation({
         playerId: args.playerId,
