@@ -4,6 +4,8 @@ A tool-using AI agent that triages player support tickets during a AAA game laun
 
 **Stack:** TypeScript · Node.js · [Hono](https://hono.dev) · [Vercel AI SDK](https://ai-sdk.dev) (`ToolLoopAgent`, Google Gemini or OpenAI) · Zod · Vitest
 
+**Frontend (operator console):** [wrld1/support-agent-app-fe](https://github.com/wrld1/support-agent-app-fe). It's a React UI for running the scenarios, watching the tool trace and inspecting the store against this backend. See [Manual checks with the operator console](#manual-checks-with-the-operator-console).
+
 ---
 
 ## 1. Problem Statement
@@ -196,6 +198,27 @@ There are 19 Vitest tests in `src/agent.test.ts`. They always run in determinist
 
 - A malformed JSON body returns 400.
 - SCN-1 to SCN-5 end to end: HTTP 200, schema-valid output, the expected decision and citations, and the exact store changes.
+
+### Manual checks with the operator console
+
+The frontend lives in a separate repo: [wrld1/support-agent-app-fe](https://github.com/wrld1/support-agent-app-fe).
+
+1. Start this backend on port 3000 (`npm run dev`).
+2. In another terminal:
+
+   ```bash
+   git clone https://github.com/wrld1/support-agent-app-fe.git
+   cd support-agent-app-fe
+   npm install
+   npm run dev
+   ```
+
+3. Open the URL Vite prints (usually `http://localhost:5173`). The console calls `http://localhost:3000` by default; set `VITE_API_URL` to point it at another backend.
+4. Pick a scenario (SCN-1 to SCN-5) and click **Run**, or edit the ticket form and click **Run Autonomous Agent Triage**. Then check:
+   - the decision panel shows the expected decision from the table below;
+   - the trace timeline lists each guardrail check and tool call with its arguments, result and duration;
+   - the store inspector shows the changes (for example, USR-1001 gains the Voidwalker Skin Pack and +500 shards in SCN-1, and a `P1-ESC-…` ticket appears for USR-1004 in SCN-3).
+5. Use **Reset CRUD Store** to restore the seed data between runs.
 
 ### Manual checks with curl
 
