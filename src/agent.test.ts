@@ -144,6 +144,25 @@ describe('LaunchShield LiveOps — Unit Tests', () => {
     expect(result.traces.some((t) => t.toolName === 'strategy_fallback:vercel-ai-sdk')).toBe(true);
   });
 
+  it('skips the LLM for unverifiable tickets and passes verified context to it otherwise', async () => {
+    const calls: string[] = [];
+    const llmRunner = async ({ player, kbArticles }: { player: { playerId: string }; kbArticles: unknown[] }) => {
+      calls.push(player.playerId);
+      expect(kbArticles.length).toBeGreaterThan(0);
+      throw new Error('stop after context check');
+    };
+
+    const unverified = PRESET_SCENARIOS.find((s) => s.id === 'SCN-4')!;
+    const skipped = await triageTicket({ ...unverified.ticket }, store, { llmRunner });
+    expect(skipped.output.decision).toBe('NEEDS_MORE_INFO');
+    expect(skipped.executionMode).toBe('deterministic-fallback');
+    expect(calls).toEqual([]);
+
+    const verified = PRESET_SCENARIOS.find((s) => s.id === 'SCN-1')!;
+    await triageTicket({ ...verified.ticket }, store, { llmRunner });
+    expect(calls).toEqual(['USR-1001']);
+  });
+
   it('repeated SCN-1 tickets never re-grant the item and escalate once the shards cap is reached', async () => {
     const scenario = PRESET_SCENARIOS.find((s) => s.id === 'SCN-1')!;
     const run = () => triageTicket({ ...scenario.ticket }, store);
@@ -177,7 +196,7 @@ describe('LaunchShield LiveOps — Unit Tests', () => {
 
     expect(
       resolveModelConfig({
-        GEMINI_API_KEY: 'real-gemini-key',
+        GOOGLE_GENERATIVE_AI_API_KEY: 'real-gemini-key',
       }),
     ).toEqual({ provider: 'google', modelId: 'gemini-2.5-flash', apiKey: 'real-gemini-key' });
 

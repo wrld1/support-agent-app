@@ -5,7 +5,6 @@ import type { TraceRecorder } from './trace.js';
 import {
   type DecisionCategory,
   type DraftPlayerResponseParams,
-  DraftPlayerResponseParamsSchema,
   type EscalationTicket,
   type ExecuteLiveOpsActionParams,
   ExecuteLiveOpsActionParamsSchema,
@@ -15,6 +14,7 @@ import {
   type PlayerRecord,
   type SearchLaunchKBParams,
   SearchLaunchKBParamsSchema,
+  type TriageRequest,
 } from './types.js';
 
 export interface TelemetryLookupResult {
@@ -33,6 +33,11 @@ export type LiveOpsActionResult =
       updatedBalance: number;
       updatedGrantedItems: string[];
     };
+
+export interface TicketContext {
+  kbArticles: ReturnType<LiveOpsToolExecutor['searchLaunchKB']>['articles'];
+  lookup: TelemetryLookupResult;
+}
 
 export interface CommittedAction {
   args: ExecuteLiveOpsActionParams;
@@ -64,6 +69,13 @@ export class LiveOpsToolExecutor {
 
   get committedAction(): CommittedAction | null {
     return this.committed;
+  }
+
+  gatherContext(req: TriageRequest): TicketContext {
+    return {
+      kbArticles: this.searchLaunchKB({ query: `${req.subject} ${req.message}` }).articles,
+      lookup: this.getPlayerTelemetry({ playerId: req.playerId, platform: req.platform }),
+    };
   }
 
   searchLaunchKB(args: SearchLaunchKBParams) {
@@ -162,12 +174,6 @@ export function createVercelAITools(executor: LiveOpsToolExecutor) {
         'Executes a mutating LiveOps action in the CRUD store: either granting eligible missing entitlements / outage compensation (enforcing the 1,000 Apex Shards cap and non-banned status) or creating a P1 engineering escalation ticket.',
       inputSchema: ExecuteLiveOpsActionParamsSchema,
       execute: async (args) => executor.executeLiveOpsAction(args),
-    }),
-    draft_player_response: tool({
-      description:
-        'Drafts a structured, policy-cited player support response incorporating grant receipts or P1 escalation ticket IDs.',
-      inputSchema: DraftPlayerResponseParamsSchema,
-      execute: async (args) => executor.draftPlayerResponse(args),
     }),
   };
 }

@@ -5,7 +5,7 @@ import {
   STANDARD_OUTAGE_COMP_SHARDS,
   VOIDWALKER_SKIN_PACK,
 } from './policy.js';
-import type { CommittedAction, LiveOpsToolExecutor } from './tools.js';
+import type { CommittedAction, LiveOpsToolExecutor, TicketContext } from './tools.js';
 import type { EscalationTicket, GrantLedgerEntry, PlayerRecord, TriageOutput, TriageRequest } from './types.js';
 
 interface Finding {
@@ -13,10 +13,12 @@ interface Finding {
   citations: string[];
 }
 
-export function runDeterministicTriage(req: TriageRequest, executor: LiveOpsToolExecutor): TriageOutput {
+export function runDeterministicTriage(
+  req: TriageRequest,
+  executor: LiveOpsToolExecutor,
+  { kbArticles, lookup }: TicketContext,
+): TriageOutput {
   const text = `${req.subject} ${req.message}`;
-  const kbSearch = executor.searchLaunchKB({ query: text });
-  const lookup = executor.getPlayerTelemetry({ playerId: req.playerId, platform: req.platform });
 
   if (!lookup.verified || !lookup.telemetry) {
     return needsMoreInfo(req, lookup.error ?? 'Player telemetry could not be verified (KB-105).', executor);
@@ -58,7 +60,7 @@ export function runDeterministicTriage(req: TriageRequest, executor: LiveOpsTool
     }
   }
 
-  return deny(player, findDenialReasons(player, wantsVoidwalker, wantsOutageComp, kbSearch.articles[0]?.id), executor);
+  return deny(player, findDenialReasons(player, wantsVoidwalker, wantsOutageComp, kbArticles[0]?.id), executor);
 }
 
 function needsMoreInfo(req: TriageRequest, error: string, executor: LiveOpsToolExecutor): TriageOutput {
